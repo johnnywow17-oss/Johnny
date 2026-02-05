@@ -9,5 +9,6 @@ python agendador.py &
 sleep 2
 
 # Inicia o bot principal com gunicorn
+# IMPORTANTE: main:app significa "arquivo main.py, objeto app"
 echo "✅ Iniciando servidor web..."
-gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 main:app
+exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 120 --access-logfile - --error-logfile - main:app
