@@ -1,0 +1,60 @@
+[
+  {
+    "nome": "Pet do Toco",
+    "telefone": "5521999175101",
+    "cep": "20520052",
+    "endereco": {
+      "rua": "Rua Conde de Bonfim",
+      "bairro": "Tijuca",
+      "cidade": "Rio de Janeiro",
+      "uf": "RJ",
+      "numero": "539",
+      "complemento": "loja b"
+    },
+    "status": "ativo",
+    "pets": [
+      {
+        "nome": "Tere",
+        "especie": "Gato",
+        "raca": "Srd",
+        "peso": 21.0,
+        "idade": 71,
+        "castrado": true,
+        "alergias": "Nenhuma"
+      }
+    ]
+  },
+  {
+    "nome": "Silv Sou",
+    "telefone": "5521999999932",
+    "status": "ativo"
+  },
+  {
+    "nome": "Tere Mart",
+    "telefone": "5521991919191",
+    "cep": "20740260",
+    "endereco": {
+      "rua": "Rua Assis Carneiro",
+      "bairro": "Piedade",
+      "cidade": "Rio de Janeiro",
+      "uf": "RJ",
+      "numero": "x",
+      "complemento": "x"
+    },
+    "status": "ativo"
+  },
+  {
+    "nome": "Silvia Iasmin",
+    "telefone": "5521994097237",
+    "cep": "20740260",
+    "endereco": {
+      "rua": "Rua Assis Carneiro",
+      "bairro": "Piedade",
+      "cidade": "Rio de Janeiro",
+      "uf": "RJ",
+      "numero": "80",
+      "complemento": "Bl 2 512"
+    },
+    "status": "ativo"
+  }
+]
