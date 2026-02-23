@@ -46,10 +46,8 @@ carregar_clientes()
 
 def normalizar_telefone(telefone):
     """Normaliza telefone: remove caracteres especiais e adiciona 55 se necessário"""
-    # Remove caracteres especiais
     tel_limpo = telefone.replace("+", "").replace("-", "").replace(" ", "").replace("(", "").replace(")", "")
     
-    # Se não começa com 55 e tem 10 ou 11 dígitos (telefone BR sem código do país)
     if not tel_limpo.startswith("55") and len(tel_limpo) in [10, 11]:
         tel_limpo = "55" + tel_limpo
     
@@ -57,21 +55,16 @@ def normalizar_telefone(telefone):
 
 def buscar_cliente_por_telefone(telefone):
     """Busca cliente por telefone (normalizado com 55)"""
-    # Recarrega clientes do arquivo para garantir dados atualizados
     carregar_clientes()
     
     print(f"[DEBUG] Buscando telefone: {telefone}")
     print(f"[DEBUG] Total de clientes no arquivo: {len(clientes)}")
     
-    # Normaliza o telefone buscado
     telefone_normalizado = normalizar_telefone(telefone)
     print(f"[DEBUG] Telefone normalizado: {telefone_normalizado}")
     
     for i, c in enumerate(clientes):
-        # Normaliza o telefone do cliente
         tel_cliente = normalizar_telefone(c.get("telefone", ""))
-        print(f"[DEBUG] Comparando com cliente {i+1}: {tel_cliente} == {telefone_normalizado}?")
-        
         if tel_cliente == telefone_normalizado:
             print(f"[DEBUG] ✓ Cliente ENCONTRADO: {c.get('nome')} - {telefone}")
             return c
@@ -161,7 +154,6 @@ def mensagem_marketing_personalizada(cliente):
             "Quer saber mais? Responda *OI* 😊"
         )
     
-    # Pega o primeiro pet
     pet = pets[0]
     nome_pet = pet.get("nome", "seu pet")
     especie = pet.get("especie", "").lower()
@@ -200,9 +192,17 @@ def mensagem_marketing_personalizada(cliente):
 
 # ================= ENVIO =================
 def enviar_mensagem(numero, texto):
+    """
+    Envia mensagem via Whapi.
+    'numero' deve estar no formato: 5521999999999@s.whatsapp.net
+    """
     headers = {"Authorization": f"Bearer {WHAPI_TOKEN}"}
     payload = {"to": numero, "body": texto}
-    requests.post(WHAPI_SEND_URL, json=payload, headers=headers)
+    try:
+        r = requests.post(WHAPI_SEND_URL, json=payload, headers=headers, timeout=10)
+        print(f"[ENVIO] Status: {r.status_code} → {numero}")
+    except Exception as e:
+        print(f"[ENVIO] Erro: {e}")
     time.sleep(0.3)
 
 # ================= PROCESSAR ESTADOS =================
@@ -220,7 +220,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
         estado = estado_info["estado"]
         dados = estado_info["dados"]
 
-        # === Nome ===
         if estado == "CADASTRO_NOME":
             if len(mensagem.split()) < 2:
                 return "Informe *nome e sobrenome*, por favor."
@@ -228,7 +227,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             estado_info["estado"] = "CADASTRO_CEP"
             return "Agora informe seu *CEP* (8 números)."
 
-        # === CEP ===
         elif estado == "CADASTRO_CEP":
             if not validar_cep(mensagem):
                 return "CEP inválido. Use apenas números."
@@ -249,7 +247,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
                 "Está correto?\n1️⃣ Sim\n2️⃣ Não"
             )
 
-        # === Confirma endereço ===
         elif estado == "CONFIRMAR_ENDERECO":
             if mensagem == "1":
                 estado_info["estado"] = "CADASTRO_NUMERO"
@@ -260,13 +257,11 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             else:
                 return "Digite:\n1️⃣ Sim\n2️⃣ Não"
 
-        # === Número ===
         elif estado == "CADASTRO_NUMERO":
             dados["endereco"]["numero"] = mensagem
             estado_info["estado"] = "CADASTRO_COMPLEMENTO"
             return "Informe o *complemento* (ou digite 'nenhum')."
 
-        # === Complemento ===
         elif estado == "CADASTRO_COMPLEMENTO":
             if mensagem.lower() in ["nenhum", "não", "nao"]:
                 dados["endereco"]["complemento"] = ""
@@ -284,10 +279,8 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
                 "1️⃣ Confirmar\n2️⃣ Corrigir"
             )
 
-        # === Confirma cadastro ===
         elif estado == "CONFIRMAR_CADASTRO":
             if mensagem == "1":
-                # Agora vai para cadastro de PET (obrigatório)
                 estado_info["estado"] = "PET_NOME"
                 return (
                     "Perfeito! Agora vamos cadastrar seu pet 🐾\n\n"
@@ -299,9 +292,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             else:
                 return "Digite:\n1️⃣ Confirmar\n2️⃣ Corrigir"
 
-        # ========================================
-        # CADASTRO DE PET (obrigatório no cadastro)
-        # ========================================
         elif estado == "PET_NOME":
             dados["pet_temp"] = {"nome": mensagem.title()}
             estado_info["estado"] = "PET_ESPECIE"
@@ -325,8 +315,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             else:
                 return "Digite:\n1️⃣ Macho\n2️⃣ Fêmea"
             estado_info["estado"] = "PET_IDADE"
-            
-            # Define artigo baseado no gênero
             artigo = "o" if dados["pet_temp"]["genero"] == "macho" else "a"
             return f"Qual a idade d{artigo} {dados['pet_temp']['nome']}? (em anos)"
 
@@ -337,8 +325,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             except:
                 return "Digite apenas o número da idade (ex: 3)"
             estado_info["estado"] = "PET_CASTRADO"
-            
-            # Define artigo baseado no gênero
             artigo = "o" if dados["pet_temp"].get("genero") == "macho" else "a"
             castrado_txt = "castrado" if dados["pet_temp"].get("genero") == "macho" else "castrada"
             return f"{artigo.capitalize()} {dados['pet_temp']['nome']} é {castrado_txt}?\n\n1️⃣ Sim\n2️⃣ Não"
@@ -351,8 +337,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             else:
                 return "Digite:\n1️⃣ Sim\n2️⃣ Não"
             estado_info["estado"] = "PET_ALERGICO"
-            
-            # Define artigo baseado no gênero
             artigo = "o" if dados["pet_temp"].get("genero") == "macho" else "a"
             return f"{artigo.capitalize()} {dados['pet_temp']['nome']} tem alguma *alergia*?\n(Digite o nome da alergia ou 'nenhuma')"
 
@@ -362,14 +346,8 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             else:
                 dados["pet_temp"]["alergico"] = mensagem
             
-            # ===== VALIDAÇÃO CRÍTICA: TELEFONE JÁ EXISTE? =====
-            print(f"[DEBUG] Finalizando cadastro para: {telefone}")
-            print(f"[DEBUG] Total de clientes antes: {len(clientes)}")
-            
             cliente_existente = buscar_cliente_por_telefone(telefone)
             if cliente_existente:
-                # Cliente já existe! Não cadastra de novo
-                print(f"[AVISO] Tentativa de cadastro duplicado: {telefone}")
                 del estados_conversa[telefone]
                 primeiro_nome = cliente_existente["nome"].split()[0]
                 return (
@@ -377,14 +355,11 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
                     "Digite *MENU* para ver as opções."
                 )
             
-            # Finaliza cadastro
             agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
-            
-            # Normaliza telefone antes de salvar
             telefone_normalizado = normalizar_telefone(telefone)
             
             dados.update({
-                "telefone": telefone_normalizado,  # Salva com 55
+                "telefone": telefone_normalizado,
                 "pets": [dados["pet_temp"]],
                 "opt_out": False,
                 "ultima_interacao": agora.strftime("%Y-%m-%d"),
@@ -392,14 +367,8 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             })
             dados.pop("pet_temp")
             
-            # Adiciona à lista GLOBAL de clientes
             clientes.append(dados)
-            print(f"[DEBUG] Cliente adicionado: {dados['nome']} ({telefone})")
-            print(f"[DEBUG] Total de clientes depois: {len(clientes)}")
-            
-            # Salva no arquivo JSON
             salvar_clientes()
-            print(f"[DEBUG] Arquivo salvo com sucesso!")
             
             estados_conversa[telefone] = "MENU_PRINCIPAL"
             
@@ -422,24 +391,20 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
     # MENUS
     # ========================================
     
-    # === Menu inicial (novo cliente) ===
     elif estado_info == "MENU_INICIAL":
         if mensagem == "1":
-            # Verifica se já tem cadastro (segurança extra)
             if cliente:
                 primeiro_nome = cliente["nome"].split()[0]
                 return (
                     f"{primeiro_nome}, você já tem cadastro! 😊\n\n"
                     "Digite *MENU* para ver as opções."
                 )
-            
             estados_conversa[telefone] = {
                 "estado": "CADASTRO_NOME",
                 "dados": {"telefone": telefone}
             }
             return "Perfeito! 😊\nVamos começar seu cadastro.\n\nInforme seu *nome completo*."
         elif mensagem == "2":
-            # Vai para menu de dúvidas
             estados_conversa[telefone] = "MENU_DUVIDAS"
             return (
                 "Claro! Sobre o que você precisa?\n\n"
@@ -458,12 +423,10 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
         else:
             return "Opção inválida. Digite 1, 2, 3 ou 0."
 
-    # === Menu principal ===
     elif estado_info == "MENU_PRINCIPAL":
         tem_status = is_interacao_recente(cliente) if cliente else False
         
         if tem_status:
-            # Menu com 4 opções (< 6h)
             if mensagem == "1":
                 transferir_para_humano(telefone, cliente)
                 return "Entendido! Vou te reconectar com o atendimento. Um momento... 👩‍💼"
@@ -471,7 +434,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
                 estados_conversa[telefone] = "AGUARDANDO_PEDIDO"
                 return "Perfeito! Me diga o que você gostaria de pedir 🛒"
             elif mensagem == "3":
-                # Mostrar pets para banho e tosa
                 if cliente and cliente.get("pets"):
                     pets = cliente["pets"]
                     texto = "Qual pet você gostaria de agendar? 🐾\n\n"
@@ -501,12 +463,10 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             else:
                 return "Opção inválida. Digite 1, 2, 3, 4 ou 0."
         else:
-            # Menu com 3 opções (> 6h)
             if mensagem == "1":
                 estados_conversa[telefone] = "AGUARDANDO_PEDIDO"
                 return "Perfeito! Me diga o que você gostaria de pedir 🛒"
             elif mensagem == "2":
-                # Mostrar pets
                 if cliente and cliente.get("pets"):
                     pets = cliente["pets"]
                     texto = "Qual pet você gostaria de agendar? 🐾\n\n"
@@ -536,7 +496,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             else:
                 return "Opção inválida. Digite 1, 2, 3 ou 0."
 
-    # === Seleção de pet para banho ===
     elif estado_info == "SELECIONAR_PET_BANHO":
         try:
             opcao = int(mensagem)
@@ -547,7 +506,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
                     transferir_para_humano(telefone, cliente)
                     return f"Perfeito! Vou agendar banho e tosa para o(a) {pet_selecionado['nome']} 🐾\n\nTransferindo para atendente..."
                 elif opcao == len(pets) + 1:
-                    # Cadastrar novo pet
                     estados_conversa[telefone] = {
                         "estado": "NOVO_PET_NOME",
                         "dados": {}
@@ -557,7 +515,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             pass
         return "Opção inválida. Digite o número do pet."
 
-    # === Cadastro de novo pet ===
     elif isinstance(estado_info, dict) and estado_info.get("estado") == "NOVO_PET_NOME":
         dados = estado_info["dados"]
         dados["nome"] = mensagem.title()
@@ -617,7 +574,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
         else:
             dados["alergico"] = mensagem
         
-        # Adiciona pet ao cliente
         if cliente:
             cliente["pets"].append(dados)
             salvar_clientes()
@@ -628,7 +584,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             "Voltando ao menu principal..."
         )
 
-    # === Menu de dúvidas ===
     elif estado_info == "MENU_DUVIDAS":
         if mensagem == "1":
             transferir_para_humano(telefone, cliente)
@@ -654,7 +609,6 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
             transferir_para_humano(telefone, cliente)
             return "Claro! Vou te conectar com um atendente 👩‍💼"
         elif mensagem == "0":
-            # Volta ao menu apropriado
             if cliente:
                 estados_conversa[telefone] = "MENU_PRINCIPAL"
                 return "Voltando ao menu..."
@@ -671,9 +625,8 @@ def processar_estado(telefone, mensagem, cliente, nome_whats="Cliente"):
         else:
             return "Opção inválida. Digite 1, 2, 3, 4 ou 0."
 
-    # === Outros estados ===
     elif estado_info == "HUMANO":
-        return None  # Bot em silêncio
+        return None
     
     elif estado_info == "AGUARDANDO_PEDIDO":
         transferir_para_humano(telefone, cliente)
@@ -694,17 +647,39 @@ def webhook():
             return "OK", 200
 
         msg = data["messages"][0]
+
+        # ✅ FIX 1: Ignorar mensagens enviadas pelo próprio bot (evita loop)
+        if msg.get("from_me"):
+            return "OK", 200
+
         if "text" not in msg or "body" not in msg["text"]:
             return "OK", 200
 
         mensagem = msg["text"]["body"].strip()
-        numero_full = msg["from"]
-        telefone = numero_full.split("@")[0]
+
+        # ✅ FIX 2: Extrair telefone e chat_id corretamente conforme documentação Whapi
+        # - "from": número puro do remetente (ex: "5521999999999")
+        # - "chat_id": ID completo da conversa (ex: "5521999999999@s.whatsapp.net")
+        telefone = msg.get("from", "")
+        chat_id = msg.get("chat_id", "")
+
+        # Remove @s.whatsapp.net do telefone se vier com sufixo
+        if "@" in telefone:
+            telefone = telefone.split("@")[0]
+
+        # Para responder, usamos o chat_id (formato exigido pelo Whapi para envio)
+        # Se não tiver chat_id, monta a partir do telefone
+        if not chat_id:
+            chat_id = f"{telefone}@s.whatsapp.net"
+
+        numero_full = chat_id  # Usado em enviar_mensagem()
+
         nome_whats = msg.get("pushname", msg.get("from_name", "Cliente")).strip()
 
         print(f"\n{'='*60}")
         print(f"[WEBHOOK] Mensagem recebida")
-        print(f"[WEBHOOK] Telefone: {telefone}")
+        print(f"[WEBHOOK] Telefone (from): {telefone}")
+        print(f"[WEBHOOK] Chat ID: {chat_id}")
         print(f"[WEBHOOK] Nome WhatsApp: {nome_whats}")
         print(f"[WEBHOOK] Mensagem: {mensagem}")
         
@@ -838,7 +813,6 @@ def webhook():
             estados_conversa[telefone] = "MENU_PRINCIPAL"
             primeiro_nome = cliente["nome"].split()[0]
             
-            # Pega o nome do pet para mensagem mais carinhosa
             nome_pet = ""
             if cliente.get("pets"):
                 nome_pet = cliente["pets"][0]["nome"]
@@ -906,8 +880,5 @@ def webhook():
 
 # ================= MAIN =================
 if __name__ == "__main__":
-    # Apenas para desenvolvimento local
-    # No Render, o gunicorn gerencia isso
     porta = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=porta, debug=False)
-
